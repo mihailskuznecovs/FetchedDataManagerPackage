@@ -18,7 +18,7 @@ public class BitcoinManager {
     private var previousDate: Date = Date()
     
     
-    public func startLoadingBitcoinData(completion: @escaping (BitcoinModel) -> Void) {
+    public func startLoadingBitcoinData(completion: @escaping (Result<BitcoinModel, NetworkError>) -> Void) {
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             self?.loadBitcoinData(completion: completion)
         }
@@ -31,20 +31,25 @@ public class BitcoinManager {
     
     public init() {}
     
-    private func loadBitcoinData(completion: @escaping (BitcoinModel) -> Void) {
-        network.ParseBitcoin { [weak self] bitcoinModel in
-            guard let self = self, let model = bitcoinModel else { return }
+    private func loadBitcoinData(completion: @escaping (Result<BitcoinModel, NetworkError>) -> Void) {
+        network.ParseBitcoin { [weak self] result in
+            guard let self = self else { return }
+            switch result {
             
-            let (rateChange, difference) = self.calculateChange(newRate: model.bpi.EUR.rateFloat, newDate: model.time.updatedISO)
-            
-            let bitcoinModel = BitcoinModel(currency: model.bpi.EUR.description,
-                                     rate: model.bpi.EUR.rate,
-                                     disclaimer: model.disclaimer,
-                                     timeDifference: difference,
-                                     rateChange: rateChange)
-            
-            
-            completion(bitcoinModel)
+            case .success(let bitcoinModel):
+                let (rateChange, difference) = self.calculateChange(newRate: bitcoinModel.bpi.EUR.rateFloat, newDate: bitcoinModel.time.updatedISO)
+                
+                let bitcoinModel = BitcoinModel(currency: bitcoinModel.bpi.EUR.description,
+                                         rate: bitcoinModel.bpi.EUR.rate,
+                                         disclaimer: bitcoinModel.disclaimer,
+                                         timeDifference: difference,
+                                         rateChange: rateChange)
+                
+                
+                completion(.success(bitcoinModel))
+            case .failure(let error):
+                completion(.failure(error))
+            }
         }
     }
     

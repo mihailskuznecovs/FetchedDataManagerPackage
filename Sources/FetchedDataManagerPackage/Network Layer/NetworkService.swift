@@ -13,20 +13,32 @@ class NetworkService {
     }
     private var session: URLSession = .shared
     
-    func makeRequest(toEndpoint endpoint: Endpoint.Type, fromURLString urlString: String? = nil, completion: @escaping (Data?) -> Void) {
+    func makeRequest(toEndpoint endpoint: Endpoint.Type, fromURLString urlString: String? = nil, completion: @escaping (Result<Data, NetworkError>) -> Void) {
         
         guard let url = prepareUrl(from: urlString, endpoint: endpoint) else {
+            completion(.failure(.badURL))
             return
         }
         
         let request = createRequest(type: .get, url: url)
-        let task = createDataTask(from: request) { data, _, error in
-            print("Completion")
-            guard let data = data, error == nil else {
-                completion(nil)
+        let task = createDataTask(from: request) { data, response, error in
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                completion(.failure(.noResponse))
                 return
             }
-            completion(data)
+            
+            guard httpResponse.statusCode < 500 else {
+                completion(.failure(.serverErrorCode))
+                return
+            }
+            
+            guard let data = data, error == nil else {
+                completion(.failure(.noData))
+                return
+            }
+            
+            completion(.success(data))
         }
         task.resume()
     }
@@ -40,8 +52,10 @@ class NetworkService {
             bodyComponents.host = endpoint.host
             bodyComponents.path = endpoint.path
             
-            let queryItem = URLQueryItem(name: "rss_url", value: urlString)
-            bodyComponents.queryItems = [queryItem]
+            if endpoint == RssConverterEndpoint.self {
+                let queryItem = URLQueryItem(name: "rss_url", value: urlString)
+                bodyComponents.queryItems = [queryItem]
+            }
             
             return bodyComponents.url
         }

@@ -12,7 +12,7 @@ public class RssArticleManager {
     
     public init() {}
     
-    public func parseArticles(from urlString: String, completion: @escaping ([ArticleModel]) -> Void) {
+    public func parseArticles(from urlString: String, completion: @escaping (Result<[ArticleModel], NetworkError>) -> Void) {
         network.parseArticles(from: urlString, completion: completion)
     }
 }
